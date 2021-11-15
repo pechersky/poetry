@@ -2,6 +2,8 @@ import logging
 import os
 
 from collections import defaultdict
+from pathlib import Path, PurePath
+from typing import TYPE_CHECKING
 from typing import Dict
 from typing import List
 from typing import Union
@@ -418,23 +420,21 @@ class PyPiRepository(RemoteRepository):
 
         return self._get_info_from_sdist(urls["sdist"][0])
 
+    @staticmethod
+    def _helper_filename(url: str) -> str:
+        "Extract the basename of a file at a url, properly dealing with terminal slash."
+        return PurePath(urllib.parse.urlparse(url).path).name
+
     def _get_info_from_wheel(self, url: str) -> "PackageInfo":
         from poetry.inspection.info import PackageInfo
 
-        pathsplits = urllib.parse.urlparse(url).path.rsplit("/")
-        wheelpath = pathsplits[-1]
-        if not wheelpath:
-            wheelpath = pathsplits[-2]
-
         self._log(
-            "Downloading wheel: {}".format(wheelpath),
+            "Downloading wheel: {}".format(url),
             level="debug",
         )
 
-        filename = os.path.basename(wheelpath)
-
         with temporary_directory() as temp_dir:
-            filepath = Path(temp_dir) / filename
+            filepath = Path(temp_dir) / self._helper_filename(url)
             self._download(url, str(filepath))
 
             return PackageInfo.from_wheel(filepath)
@@ -442,20 +442,13 @@ class PyPiRepository(RemoteRepository):
     def _get_info_from_sdist(self, url: str) -> "PackageInfo":
         from poetry.inspection.info import PackageInfo
 
-        pathsplits = urllib.parse.urlparse(url).path.rsplit("/")
-        wheelpath = pathsplits[-1]
-        if not wheelpath:
-            wheelpath = pathsplits[-2]
-
         self._log(
-            "Downloading sdist: {}".format(wheelpath),
+            "Downloading sdist: {}".format(url),
             level="debug",
         )
 
-        filename = os.path.basename(wheelpath)
-
         with temporary_directory() as temp_dir:
-            filepath = Path(temp_dir) / filename
+            filepath = Path(temp_dir) / self._helper_filename(url)
             self._download(url, str(filepath))
 
             return PackageInfo.from_sdist(filepath)
